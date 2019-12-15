@@ -72,41 +72,14 @@
 //!
 //! [`PixelFormat`]: crate::pixel::PixelFormat
 
-#[cfg(feature = "std")]
 use std::cell::RefCell;
-#[cfg(feature = "std")]
 use std::fmt;
-#[cfg(feature = "std")]
 use std::marker::PhantomData;
-#[cfg(feature = "std")]
 use std::mem;
-#[cfg(feature = "std")]
 use std::ops::{Deref, DerefMut};
-#[cfg(feature = "std")]
 use std::os::raw::c_void;
-#[cfg(feature = "std")]
 use std::ptr;
-#[cfg(feature = "std")]
 use std::rc::Rc;
-
-#[cfg(not(feature = "std"))]
-use alloc::rc::Rc;
-#[cfg(not(feature = "std"))]
-use alloc::string::String;
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(not(feature = "std"))]
-use core::cell::RefCell;
-#[cfg(not(feature = "std"))]
-use core::fmt::{self, Write};
-#[cfg(not(feature = "std"))]
-use core::marker::PhantomData;
-#[cfg(not(feature = "std"))]
-use core::mem;
-#[cfg(not(feature = "std"))]
-use core::ops::{Deref, DerefMut};
-#[cfg(not(feature = "std"))]
-use core::ptr;
 
 use crate::context::GraphicsContext;
 pub use crate::depth_test::DepthComparison;
@@ -858,45 +831,17 @@ where
           Ok(())
         }
 
-        _ => {
-          #[cfg(feature = "std")]
-          {
-            Err(TextureError::TextureStorageCreationFailed(format!(
-              "unsupported texture OpenGL pixel format: {:?}",
-              glf
-            )))
-          }
-
-          #[cfg(not(feature = "std"))]
-          {
-            let mut reason = String::new();
-            let _ = write!(
-              &mut reason,
-              "unsupported texture OpenGL pixel format: {:?}",
-              glf
-            );
-            Err(TextureError::TextureStorageCreationFailed(reason))
-          }
-        }
+        _ => Err(TextureError::TextureStorageCreationFailed(format!(
+          "unsupported texture OpenGL pixel format: {:?}",
+          glf
+        ))),
       }
     }
 
-    None => {
-      #[cfg(feature = "std")]
-      {
-        Err(TextureError::TextureStorageCreationFailed(format!(
-          "unsupported texture pixel format: {:?}",
-          pf
-        )))
-      }
-
-      #[cfg(not(feature = "std"))]
-      {
-        let mut reason = String::new();
-        let _ = write!(&mut reason, "unsupported texture pixel format: {:?}", pf);
-        Err(TextureError::TextureStorageCreationFailed(reason))
-      }
-    }
+    None => Err(TextureError::TextureStorageCreationFailed(format!(
+      "unsupported texture pixel format: {:?}",
+      pf
+    ))),
   }
 }
 
