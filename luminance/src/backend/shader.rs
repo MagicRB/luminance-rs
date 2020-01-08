@@ -4,6 +4,7 @@ use std::fmt;
 use std::marker::PhantomData;
 
 use crate::backend::shader_stage::{StageError, StageType, TessellationStages};
+use crate::vertex::Semantics;
 
 /// Errors that a `Program` can generate.
 #[derive(Debug)]
@@ -12,11 +13,7 @@ pub enum ProgramError {
   StageError(StageError),
   /// Program link failed. You can inspect the reason by looking at the contained `String`.
   LinkFailed(String),
-  /// Some uniform configuration is ill-formed. It can be a problem of inactive uniform, mismatch
-  /// type, etc. Check the `UniformWarning` type for more information.
-  UniformWarning(UniformWarning),
-  /// Some vertex attribute is ill-formed.
-  VertexAttribWarning(VertexAttribWarning),
+  Warning(ProgramWarning),
 }
 
 impl fmt::Display for ProgramError {
@@ -26,14 +23,7 @@ impl fmt::Display for ProgramError {
 
       ProgramError::LinkFailed(ref s) => write!(f, "shader program failed to link: {}", s),
 
-      ProgramError::UniformWarning(ref e) => {
-        write!(f, "shader program contains uniform warning(s): {}", e)
-      }
-      ProgramError::VertexAttribWarning(ref e) => write!(
-        f,
-        "shader program contains vertex attribute warning(s): {}",
-        e
-      ),
+      ProgramError::Warning(ref e) => write!(f, "shader program warning: {}", e),
     }
   }
 }
@@ -58,6 +48,25 @@ impl fmt::Display for UniformWarning {
       UniformWarning::TypeMismatch(ref n, ref t) => {
         write!(f, "type mismatch for uniform {}: {}", n, t)
       }
+    }
+  }
+}
+
+/// Program warnings, not necessarily considered blocking errors.
+#[derive(Debug)]
+pub enum ProgramWarning {
+  /// Some uniform configuration is ill-formed. It can be a problem of inactive uniform, mismatch
+  /// type, etc. Check the `UniformWarning` type for more information.
+  Uniform(UniformWarning),
+  /// Some vertex attribute is ill-formed.
+  VertexAttrib(VertexAttribWarning),
+}
+
+impl fmt::Display for ProgramWarning {
+  fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    match *self {
+      ProgramWarning::Uniform(ref e) => write!(f, "uniform warning: {}", e),
+      ProgramWarning::VertexAttrib(ref e) => write!(f, "vertex attribute warning: {}", e),
     }
   }
 }
@@ -222,13 +231,21 @@ pub unsafe trait Shader {
 
   unsafe fn destroy_stage(stage: &mut Self::StageRepr);
 
-  unsafe fn from_stages(
+  unsafe fn new_program(
     &mut self,
     vertex: &Self::StageRepr,
     tess: Option<TessellationStages<Self::StageRepr>>,
     geometry: Option<&Self::StageRepr>,
     fragment: &Self::StageRepr,
   ) -> Result<Self::ProgramRepr, ProgramError>;
+
+  unsafe fn destroy_program(program: &mut Self::ProgramRepr);
+
+  unsafe fn apply_semantics<Sem>(
+    program: &mut Self::ProgramRepr,
+  ) -> Result<Vec<VertexAttribWarning>, ProgramError>
+  where
+    Sem: Semantics;
 
   unsafe fn new_uniform_builder(
     program: &mut Self::ProgramRepr,
@@ -241,10 +258,7 @@ pub unsafe trait Shader {
   where
     T: Uniformable<Self>;
 
-  unsafe fn ask_unbound<T>(
-    uniform_builder: &mut Self::UniformBuilderRepr,
-    name: &str,
-  ) -> Uniform<T>
+  unsafe fn unbound<T>(uniform_builder: &mut Self::UniformBuilderRepr) -> Uniform<T>
   where
     T: Uniformable<Self>;
 }
